@@ -19,10 +19,13 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
-#include "ssd1306.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "ssd1306.h"
+#include "hdc2010.h"
+// I2C api
+// https://dev.st.com/stm32cube-docs/stm32u5-hal2/2.0.0-beta.1.1/docs/drivers/hal_drivers/i2c/hal_i2c_apis.html
 
 /* USER CODE END Includes */
 
@@ -530,7 +533,7 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    osDelay(100);
   }
   /* USER CODE END 5 */
 }
@@ -575,7 +578,7 @@ void StartDisplayTask(void *argument)
   {
 
     osMessageQueueGet(&humidityValueHandle, &humidityValue, 0, 0);
-    osDelay(1);
+    osDelay(100);
   }
   /* USER CODE END StartDisplayTask */
 }
