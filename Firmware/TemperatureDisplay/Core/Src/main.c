@@ -24,6 +24,8 @@
 /* USER CODE BEGIN Includes */
 #include "ssd1306.h"
 #include "hdc2010.h"
+#include "ssd1306_fonts.h"
+#include "stdlib.h"
 // I2C api
 // https://dev.st.com/stm32cube-docs/stm32u5-hal2/2.0.0-beta.1.1/docs/drivers/hal_drivers/i2c/hal_i2c_apis.html
 
@@ -82,7 +84,7 @@ const osThreadAttr_t sensorTask_attributes = {
 };
 /* Definitions for displayTask */
 osThreadId_t displayTaskHandle;
-uint32_t displayTaskBuffer[ 1000 ];
+uint32_t displayTaskBuffer[ 3000 ];
 osStaticThreadDef_t displayTaskControlBlock;
 const osThreadAttr_t displayTask_attributes = {
   .name = "displayTask",
@@ -270,12 +272,14 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
+  RCC_OscInitStruct.MSICalibrationValue = 0;
+  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_MSI;
   RCC_OscInitStruct.PLL.PLLM = 1;
-  RCC_OscInitStruct.PLL.PLLN = 20;
+  RCC_OscInitStruct.PLL.PLLN = 40;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
   RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
   RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
@@ -496,14 +500,14 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(BLINK_LED_GPIO_Port, BLINK_LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, BLINK_LED_Pin|TEST_LED_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : BLINK_LED_Pin */
-  GPIO_InitStruct.Pin = BLINK_LED_Pin;
+  /*Configure GPIO pins : BLINK_LED_Pin TEST_LED_Pin */
+  GPIO_InitStruct.Pin = BLINK_LED_Pin|TEST_LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(BLINK_LED_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : INT_TEMP_Pin */
   GPIO_InitStruct.Pin = INT_TEMP_Pin;
@@ -548,12 +552,14 @@ void StartDefaultTask(void *argument)
 void StartSensorTask(void *argument)
 {
   /* USER CODE BEGIN StartSensorTask */
+  uint8_t humidityValue = 50;
+
   /* Infinite loop */
   for(;;)
   {
-    uint8_t humidityValue = 50;
-    osMessageQueuePut(&humidityValueHandle, &humidityValue, 0, 0);
-    osDelay(500);
+    osMessageQueuePut(humidityValueHandle, &humidityValue, 0, 0);
+    humidityValue++;
+    osDelay(1000);
   }
   /* USER CODE END StartSensorTask */
 }
@@ -573,12 +579,19 @@ void StartDisplayTask(void *argument)
   ssd1306_UpdateScreen();
 
   uint8_t humidityValue = 0;
+  char text[5];
   /* Infinite loop */
   for(;;)
   {
+    osMessageQueueGet(humidityValueHandle, &humidityValue, NULL, 0);
 
-    osMessageQueueGet(&humidityValueHandle, &humidityValue, 0, 0);
-    osDelay(100);
+    itoa( humidityValue, text, 10);
+    ssd1306_Fill(Black);
+    ssd1306_SetCursor(0,0);
+    ssd1306_WriteString(text, Font_11x18, White);
+    ssd1306_UpdateScreen();
+
+    osDelay(500);
   }
   /* USER CODE END StartDisplayTask */
 }
@@ -594,9 +607,12 @@ void StartLedTask(void *argument)
 {
   /* USER CODE BEGIN StartLedTask */
   /* Infinite loop */
+  HAL_GPIO_WritePin(TEST_LED_GPIO_Port, TEST_LED_Pin, GPIO_PIN_SET);
   for(;;)
   {
-    HAL_GPIO_TogglePin(BLINK_LED_GPIO_Port, BLINK_LED_Pin);
+    // HAL_GPIO_TogglePin(BLINK_LED_GPIO_Port, BLINK_LED_Pin);
+    HAL_GPIO_TogglePin(TEST_LED_GPIO_Port, TEST_LED_Pin);
+    
     osDelay(1000);
   }
   /* USER CODE END StartLedTask */
