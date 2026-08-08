@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "ssd1306.h"
+#include "ssd1306_fonts.h"
 #include "hdc2010.h"
 // I2C api
 // https://dev.st.com/stm32cube-docs/stm32u5-hal2/2.0.0-beta.1.1/docs/drivers/hal_drivers/i2c/hal_i2c_apis.html
@@ -32,6 +33,7 @@
 /* Private typedef -----------------------------------------------------------*/
 typedef StaticTask_t osStaticThreadDef_t;
 typedef StaticQueue_t osStaticMessageQDef_t;
+typedef StaticEventGroup_t osStaticEventGroupDef_t;
 /* USER CODE BEGIN PTD */
 
 /* USER CODE END PTD */
@@ -82,7 +84,7 @@ const osThreadAttr_t sensorTask_attributes = {
 };
 /* Definitions for displayTask */
 osThreadId_t displayTaskHandle;
-uint32_t displayTaskBuffer[ 1000 ];
+uint32_t displayTaskBuffer[ 2400 ];
 osStaticThreadDef_t displayTaskControlBlock;
 const osThreadAttr_t displayTask_attributes = {
   .name = "displayTask",
@@ -94,7 +96,7 @@ const osThreadAttr_t displayTask_attributes = {
 };
 /* Definitions for ledTask */
 osThreadId_t ledTaskHandle;
-uint32_t ledTaskBuffer[ 512 ];
+uint32_t ledTaskBuffer[ 256 ];
 osStaticThreadDef_t ledTaskControlBlock;
 const osThreadAttr_t ledTask_attributes = {
   .name = "ledTask",
@@ -125,6 +127,14 @@ const osMessageQueueAttr_t temperatureValue_attributes = {
   .cb_size = sizeof(temperatureValueControlBlock),
   .mq_mem = &temperatureValueBuffer,
   .mq_size = sizeof(temperatureValueBuffer)
+};
+/* Definitions for sensorEvent */
+osEventFlagsId_t sensorEventHandle;
+osStaticEventGroupDef_t sensorEventControlBlock;
+const osEventFlagsAttr_t sensorEvent_attributes = {
+  .name = "sensorEvent",
+  .cb_mem = &sensorEventControlBlock,
+  .cb_size = sizeof(sensorEventControlBlock),
 };
 /* USER CODE BEGIN PV */
 
@@ -231,8 +241,13 @@ int main(void)
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
 
+  /* Create the event(s) */
+  /* creation of sensorEvent */
+  sensorEventHandle = osEventFlagsNew(&sensorEvent_attributes);
+
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
+  #define SENSOR_READY 1
   /* USER CODE END RTOS_EVENTS */
 
   /* Start scheduler */
@@ -507,9 +522,13 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : INT_TEMP_Pin */
   GPIO_InitStruct.Pin = INT_TEMP_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(INT_TEMP_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -517,7 +536,11 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+/* Handle Sensor Interrupt */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+  osEventFlagsSet(sensorEventHandle, SENSOR_READY);
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -530,11 +553,16 @@ static void MX_GPIO_Init(void)
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
+
+  // For now DefaultTask is unused
+  osThreadTerminate(defaultTaskHandle);
+
   /* Infinite loop */
-  for(;;)
-  {
-    osDelay(100);
-  }
+  // for(;;)
+  // {
+  //   osDelay(100);
+  // }
+
   /* USER CODE END 5 */
 }
 
@@ -548,12 +576,31 @@ void StartDefaultTask(void *argument)
 void StartSensorTask(void *argument)
 {
   /* USER CODE BEGIN StartSensorTask */
+  if (hdc2010_init() != HAL_OK)
+  {
+    // log error
+  }
+  
+  float humidity = 50.0;
+  float temperature = 20.0;
+  
   /* Infinite loop */
   for(;;)
   {
-    uint8_t humidityValue = 50;
-    osMessageQueuePut(&humidityValueHandle, &humidityValue, 0, 0);
-    osDelay(500);
+    // Wait for interrupt signal from HDC2010 before retreiving data
+    osEventFlagsWait(sensorEventHandle, SENSOR_READY, osFlagsWaitAll, osWaitForever);
+
+    // Retreive data from sensor
+    if (hdc2010_read_temperature_humidity(&temperature, &humidity) != HAL_OK)
+    {
+      // log error
+    }
+
+    // Put temperature and humidity values in queues
+    osMessageQueuePut(&humidityValueHandle, &humidity, 0, 0);
+    osMessageQueuePut(&temperatureValueHandle, &temperature, 0, 0);
+
+    osDelay(1000);
   }
   /* USER CODE END StartSensorTask */
 }
@@ -568,17 +615,26 @@ void StartSensorTask(void *argument)
 void StartDisplayTask(void *argument)
 {
   /* USER CODE BEGIN StartDisplayTask */
+  // Initialize display
   ssd1306_Init();
-  ssd1306_Fill(White);
+  ssd1306_Fill(Black);
+  ssd1306_WriteString("Starting...", Font_11x18, White);
   ssd1306_UpdateScreen();
 
-  uint8_t humidityValue = 0;
+  uint8_t humidity = 0;
+  uint8_t temperature = 0;
+  
   /* Infinite loop */
   for(;;)
   {
+    // Retreive data from queue
+    // If queue is empty, use previous value
+    osMessageQueueGet(&humidityValueHandle, &humidity, 0, 0);
+    osMessageQueueGet(&temperatureValueHandle, &temperature, 0, 0);
 
-    osMessageQueueGet(&humidityValueHandle, &humidityValue, 0, 0);
-    osDelay(100);
+    // Render Values
+
+    osDelay(1000);
   }
   /* USER CODE END StartDisplayTask */
 }

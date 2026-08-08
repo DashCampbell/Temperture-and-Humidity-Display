@@ -71,6 +71,7 @@ void Error_Handler(void);
 #define SDA_TEMP_GPIO_Port GPIOA
 #define INT_TEMP_Pin GPIO_PIN_11
 #define INT_TEMP_GPIO_Port GPIOA
+#define INT_TEMP_EXTI_IRQn EXTI15_10_IRQn
 #define SDA_DISPLAY_Pin GPIO_PIN_4
 #define SDA_DISPLAY_GPIO_Port GPIOB
 
