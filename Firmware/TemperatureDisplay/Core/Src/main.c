@@ -285,12 +285,14 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
+  RCC_OscInitStruct.MSICalibrationValue = 0;
+  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_MSI;
   RCC_OscInitStruct.PLL.PLLM = 1;
-  RCC_OscInitStruct.PLL.PLLN = 20;
+  RCC_OscInitStruct.PLL.PLLN = 40;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
   RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
   RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
@@ -581,8 +583,8 @@ void StartSensorTask(void *argument)
     // log error
   }
   
-  float humidity = 50.0;
-  float temperature = 20.0;
+  float humidity = 0.0;
+  float temperature = 0.0;
   
   /* Infinite loop */
   for(;;)
@@ -597,8 +599,8 @@ void StartSensorTask(void *argument)
     }
 
     // Put temperature and humidity values in queues
-    osMessageQueuePut(&humidityValueHandle, &humidity, 0, 0);
-    osMessageQueuePut(&temperatureValueHandle, &temperature, 0, 0);
+    // osMessageQueuePut(&humidityValueHandle, &humidity, 0, 0);
+    // osMessageQueuePut(&temperatureValueHandle, &temperature, 0, 0);
 
     osDelay(1000);
   }
@@ -629,10 +631,13 @@ void StartDisplayTask(void *argument)
   {
     // Retreive data from queue
     // If queue is empty, use previous value
-    osMessageQueueGet(&humidityValueHandle, &humidity, 0, 0);
-    osMessageQueueGet(&temperatureValueHandle, &temperature, 0, 0);
+    // osMessageQueueGet(&humidityValueHandle, &humidity, 0, 0);
+    // osMessageQueueGet(&temperatureValueHandle, &temperature, 0, 0);
 
     // Render Values
+
+    // Set color of WS2818B LED
+
 
     osDelay(1000);
   }
