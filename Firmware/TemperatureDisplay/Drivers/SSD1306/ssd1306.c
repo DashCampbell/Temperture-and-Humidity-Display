@@ -1,4 +1,5 @@
 #include "ssd1306.h"
+#include "stm32l4xx_hal_i2c.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>  // For memcpy
@@ -12,11 +13,13 @@ void ssd1306_Reset(void) {
 // Send a byte to the command register
 void ssd1306_WriteCommand(uint8_t byte) {
     HAL_I2C_Mem_Write(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &byte, 1, HAL_MAX_DELAY);
+    // HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x00, 1, &byte, 1);
 }
 
 // Send data
 void ssd1306_WriteData(uint8_t* buffer, size_t buff_size) {
     HAL_I2C_Mem_Write(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x40, 1, buffer, buff_size, HAL_MAX_DELAY);
+    // HAL_I2C_Mem_Write_DMA(&SSD1306_I2C_PORT, SSD1306_I2C_ADDR, 0x40, 1, buffer, buff_size);
 }
 
 #elif defined(SSD1306_USE_SPI)
