@@ -621,13 +621,13 @@ void StartDisplayTask(void *argument)
 {
   /* USER CODE BEGIN StartDisplayTask */
   // Initialize display
-  // ssd1306_Init();
-  // ssd1306_Fill(Black);
-  // ssd1306_WriteString("Starting...", Font_11x18, White);
-  // ssd1306_UpdateScreen();
+  ssd1306_Init();
+  ssd1306_Fill(Black);
+  ssd1306_WriteString("Starting...", Font_11x18, White);
+  ssd1306_UpdateScreen();
 
   // Initialize Addressable LED
-  WS2812_Init();
+  // WS2812_Init();
 
 
   // uint8_t humidity = 0x34;
@@ -644,13 +644,14 @@ void StartDisplayTask(void *argument)
 
     // Render Values
     // ssd1306_Fill(Black);
-    // ssd1306_WriteString("Starting...", Font_11x18, White);
+    // ssd1306_SetCursor(0, 0);
+    // ssd1306_WriteString("Begin", Font_11x18, White);
     // ssd1306_UpdateScreen();
     // HAL_I2C_Mem_Write(&SSD1306_I2C_PORT, 0x12, 0x00, 1, &humidity, 1, HAL_MAX_DELAY);
 
     // Set color of WS2818B LED
-    WS2812_SetColor(0,0, 0, 1);
-    WS2812_Update();
+    // WS2812_SetColor(0,0, 0, 1);
+    // WS2812_Update();
   
 
     osDelay(100);
