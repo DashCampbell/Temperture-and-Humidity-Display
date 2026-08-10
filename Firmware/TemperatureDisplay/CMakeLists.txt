@@ -48,6 +48,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Drivers/HDC2010/hdc2010.c
     Drivers/SSD1306/ssd1306_fonts.c
     Drivers/SSD1306/ssd1306.c
+    Drivers/WS2812B/ws2812b.c
 )
 
 # Add include paths
@@ -55,6 +56,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
     Drivers/HDC2010/
     Drivers/SSD1306/
+    Drivers/WS2812B/
 )
 
 # Add project symbols (macros)

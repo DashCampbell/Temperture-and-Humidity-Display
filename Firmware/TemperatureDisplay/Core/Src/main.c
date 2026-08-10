@@ -22,9 +22,11 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "ssd1306.h"
 #include "ssd1306_fonts.h"
+#include "ssd1306.h"
 #include "hdc2010.h"
+#include "stm32l4xx_hal_tim.h"
+#include "ws2812b.h"
 // I2C api
 // https://dev.st.com/stm32cube-docs/stm32u5-hal2/2.0.0-beta.1.1/docs/drivers/hal_drivers/i2c/hal_i2c_apis.html
 
@@ -41,6 +43,9 @@ typedef StaticEventGroup_t osStaticEventGroupDef_t;
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
+// FreeRTOS Events
+#define SENSOR_READY 0x01
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -53,7 +58,6 @@ I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c3;
 DMA_HandleTypeDef hdma_i2c1_rx;
 DMA_HandleTypeDef hdma_i2c1_tx;
-DMA_HandleTypeDef hdma_i2c3_tx;
 
 TIM_HandleTypeDef htim2;
 DMA_HandleTypeDef hdma_tim2_ch1;
@@ -158,7 +162,16 @@ void StartLedTask(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim) 
+{
+  WS2812_Callback();
+}
 
+/* Handle Sensor Interrupt */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+  osEventFlagsSet(sensorEventHandle, SENSOR_READY);
+}
 /* USER CODE END 0 */
 
 /**
@@ -246,8 +259,6 @@ int main(void)
   sensorEventHandle = osEventFlagsNew(&sensorEvent_attributes);
 
   /* USER CODE BEGIN RTOS_EVENTS */
-  /* add events, ... */
-  #define SENSOR_READY 1
   /* USER CODE END RTOS_EVENTS */
 
   /* Start scheduler */
@@ -285,14 +296,13 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
-  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
-  RCC_OscInitStruct.MSICalibrationValue = 0;
-  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_MSI;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   RCC_OscInitStruct.PLL.PLLM = 1;
-  RCC_OscInitStruct.PLL.PLLN = 40;
+  RCC_OscInitStruct.PLL.PLLN = 10;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
   RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
   RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
@@ -434,7 +444,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 4294967295;
+  htim2.Init.Period = 99;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -481,9 +491,6 @@ static void MX_DMA_Init(void)
   __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
-  /* DMA1_Channel2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
   /* DMA1_Channel5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
@@ -538,11 +545,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-/* Handle Sensor Interrupt */
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-  osEventFlagsSet(sensorEventHandle, SENSOR_READY);
-}
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -578,10 +581,10 @@ void StartDefaultTask(void *argument)
 void StartSensorTask(void *argument)
 {
   /* USER CODE BEGIN StartSensorTask */
-  if (hdc2010_init() != HAL_OK)
-  {
-    // log error
-  }
+  // if (hdc2010_init() != HAL_OK)
+  // {
+  //   // log error
+  // }
   
   float humidity = 0.0;
   float temperature = 0.0;
@@ -618,13 +621,18 @@ void StartDisplayTask(void *argument)
 {
   /* USER CODE BEGIN StartDisplayTask */
   // Initialize display
-  ssd1306_Init();
-  ssd1306_Fill(Black);
-  ssd1306_WriteString("Starting...", Font_11x18, White);
-  ssd1306_UpdateScreen();
+  // ssd1306_Init();
+  // ssd1306_Fill(Black);
+  // ssd1306_WriteString("Starting...", Font_11x18, White);
+  // ssd1306_UpdateScreen();
 
-  uint8_t humidity = 0;
-  uint8_t temperature = 0;
+  // Initialize Addressable LED
+  WS2812_Init();
+
+
+  // uint8_t humidity = 0x34;
+  // uint8_t temperature = 0;
+
   
   /* Infinite loop */
   for(;;)
@@ -635,11 +643,17 @@ void StartDisplayTask(void *argument)
     // osMessageQueueGet(&temperatureValueHandle, &temperature, 0, 0);
 
     // Render Values
+    // ssd1306_Fill(Black);
+    // ssd1306_WriteString("Starting...", Font_11x18, White);
+    // ssd1306_UpdateScreen();
+    // HAL_I2C_Mem_Write(&SSD1306_I2C_PORT, 0x12, 0x00, 1, &humidity, 1, HAL_MAX_DELAY);
 
     // Set color of WS2818B LED
+    WS2812_SetColor(0,0, 0, 1);
+    WS2812_Update();
+  
 
-
-    osDelay(1000);
+    osDelay(100);
   }
   /* USER CODE END StartDisplayTask */
 }
