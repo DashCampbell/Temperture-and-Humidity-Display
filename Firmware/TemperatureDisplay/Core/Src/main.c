@@ -627,11 +627,13 @@ void StartDisplayTask(void *argument)
   ssd1306_UpdateScreen();
 
   // Initialize Addressable LED
-  // WS2812_Init();
+  WS2812_Init();
+  
+  WS2812_SetColor(0,2, 10, 0);
+  WS2812_Update();
 
-
-  // uint8_t humidity = 0x34;
-  // uint8_t temperature = 0;
+  uint8_t humidity = 0x34;
+  uint8_t temperature = 0;
 
   
   /* Infinite loop */
@@ -652,7 +654,7 @@ void StartDisplayTask(void *argument)
     // Set color of WS2818B LED
     // WS2812_SetColor(0,0, 0, 1);
     // WS2812_Update();
-  
+    
 
     osDelay(100);
   }
