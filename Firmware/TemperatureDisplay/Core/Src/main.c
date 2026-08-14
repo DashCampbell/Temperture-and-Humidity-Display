@@ -25,8 +25,8 @@
 #include "ssd1306_fonts.h"
 #include "ssd1306.h"
 #include "hdc2010.h"
-#include "stm32l4xx_hal_tim.h"
 #include "ws2812b.h"
+#include <stdio.h>
 // I2C api
 // https://dev.st.com/stm32cube-docs/stm32u5-hal2/2.0.0-beta.1.1/docs/drivers/hal_drivers/i2c/hal_i2c_apis.html
 
@@ -88,7 +88,7 @@ const osThreadAttr_t sensorTask_attributes = {
 };
 /* Definitions for displayTask */
 osThreadId_t displayTaskHandle;
-uint32_t displayTaskBuffer[ 2400 ];
+uint32_t displayTaskBuffer[ 3000 ];
 osStaticThreadDef_t displayTaskControlBlock;
 const osThreadAttr_t displayTask_attributes = {
   .name = "displayTask",
@@ -112,7 +112,7 @@ const osThreadAttr_t ledTask_attributes = {
 };
 /* Definitions for humidityValue */
 osMessageQueueId_t humidityValueHandle;
-uint8_t humidityValueBuffer[ 5 * sizeof( uint8_t ) ];
+uint8_t humidityValueBuffer[ 10 * sizeof( uint8_t ) ];
 osStaticMessageQDef_t humidityValueControlBlock;
 const osMessageQueueAttr_t humidityValue_attributes = {
   .name = "humidityValue",
@@ -123,7 +123,7 @@ const osMessageQueueAttr_t humidityValue_attributes = {
 };
 /* Definitions for temperatureValue */
 osMessageQueueId_t temperatureValueHandle;
-uint8_t temperatureValueBuffer[ 5 * sizeof( uint8_t ) ];
+uint8_t temperatureValueBuffer[ 10 * sizeof( uint8_t ) ];
 osStaticMessageQDef_t temperatureValueControlBlock;
 const osMessageQueueAttr_t temperatureValue_attributes = {
   .name = "temperatureValue",
@@ -209,6 +209,9 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
+  // Initialize Addressable LED
+  WS2812_Init();
+
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -228,10 +231,10 @@ int main(void)
 
   /* Create the queue(s) */
   /* creation of humidityValue */
-  humidityValueHandle = osMessageQueueNew (5, sizeof(uint8_t), &humidityValue_attributes);
+  humidityValueHandle = osMessageQueueNew (10, sizeof(uint8_t), &humidityValue_attributes);
 
   /* creation of temperatureValue */
-  temperatureValueHandle = osMessageQueueNew (5, sizeof(uint8_t), &temperatureValue_attributes);
+  temperatureValueHandle = osMessageQueueNew (10, sizeof(uint8_t), &temperatureValue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -563,10 +566,10 @@ void StartDefaultTask(void *argument)
   osThreadTerminate(defaultTaskHandle);
 
   /* Infinite loop */
-  // for(;;)
-  // {
-  //   osDelay(100);
-  // }
+  for(;;)
+  {
+    osDelay(1000);
+  }
 
   /* USER CODE END 5 */
 }
@@ -581,29 +584,39 @@ void StartDefaultTask(void *argument)
 void StartSensorTask(void *argument)
 {
   /* USER CODE BEGIN StartSensorTask */
-  // if (hdc2010_init() != HAL_OK)
-  // {
-  //   // log error
-  // }
+  WS2812_SetColor(0,0, 10, 0);
+  WS2812_Update();
+
+  if (hdc2010_init() != HAL_OK)
+  {
+    // log error
+    WS2812_SetColor(0,3, 0, 0);
+    WS2812_Update();
+  }
   
-  float humidity = 0.0;
-  float temperature = 0.0;
+  uint8_t humidity = 1;
+  uint8_t temperature = 1;
   
   /* Infinite loop */
   for(;;)
   {
+    // 1800
+    uint32_t task1Stack = osThreadGetStackSpace(sensorTaskHandle);
     // Wait for interrupt signal from HDC2010 before retreiving data
-    osEventFlagsWait(sensorEventHandle, SENSOR_READY, osFlagsWaitAll, osWaitForever);
+    // osEventFlagsWait(sensorEventHandle, SENSOR_READY, osFlagsWaitAll, osWaitForever);
 
-    // Retreive data from sensor
-    if (hdc2010_read_temperature_humidity(&temperature, &humidity) != HAL_OK)
-    {
-      // log error
-    }
+    // // Retreive data from sensor
+    // if (hdc2010_read_temperature_humidity(&temperature, &humidity) != HAL_OK)
+    // {
+    //   // log error
+    // }
 
     // Put temperature and humidity values in queues
-    // osMessageQueuePut(&humidityValueHandle, &humidity, 0, 0);
-    // osMessageQueuePut(&temperatureValueHandle, &temperature, 0, 0);
+    osMessageQueuePut(humidityValueHandle, &humidity, 0, 0);
+    osMessageQueuePut(temperatureValueHandle, &temperature, 0, 0);
+
+    ++humidity;
+    ++temperature;
 
     osDelay(1000);
   }
@@ -625,38 +638,52 @@ void StartDisplayTask(void *argument)
   ssd1306_Fill(Black);
   ssd1306_WriteString("Starting...", Font_11x18, White);
   ssd1306_UpdateScreen();
+  // 
+  // WS2812_SetColor(0,3, 0, 0);
+  // WS2812_Update();
 
-  // Initialize Addressable LED
-  WS2812_Init();
-  
-  WS2812_SetColor(0,2, 10, 0);
-  WS2812_Update();
-
-  uint8_t humidity = 0x34;
+  uint8_t humidity = 0;
   uint8_t temperature = 0;
 
-  
+  char cHumidity[10] = {0};
+  char cTemperature[10] = {0};
+
+  osDelay(1000);
+
   /* Infinite loop */
   for(;;)
   {
+    // 11528
+    uint32_t task2Stack = osThreadGetStackSpace(displayTaskHandle);
+
     // Retreive data from queue
     // If queue is empty, use previous value
-    // osMessageQueueGet(&humidityValueHandle, &humidity, 0, 0);
-    // osMessageQueueGet(&temperatureValueHandle, &temperature, 0, 0);
+    osStatus_t _h = osMessageQueueGet(humidityValueHandle, &humidity, NULL, 0);
+    osStatus_t _t = osMessageQueueGet(temperatureValueHandle, &temperature, NULL, 0);
+
+    // Convert values to string
+    snprintf(cHumidity, sizeof(cHumidity), "%d", humidity);
+    snprintf(cTemperature, sizeof(cTemperature), "%d", temperature);
 
     // Render Values
-    // ssd1306_Fill(Black);
-    // ssd1306_SetCursor(0, 0);
-    // ssd1306_WriteString("Begin", Font_11x18, White);
-    // ssd1306_UpdateScreen();
-    // HAL_I2C_Mem_Write(&SSD1306_I2C_PORT, 0x12, 0x00, 1, &humidity, 1, HAL_MAX_DELAY);
+    ssd1306_Fill(Black);
+    ssd1306_SetCursor(0, 0);
+    ssd1306_WriteString("T: ", Font_11x18, White);
+    ssd1306_WriteString(cTemperature, Font_11x18, White);
+    ssd1306_WriteString(" C", Font_11x18, White);
+    
+    ssd1306_SetCursor(0, 20);
+    ssd1306_WriteString("H: ", Font_11x18, White);
+    ssd1306_WriteString(cHumidity, Font_11x18, White);
+    ssd1306_WriteString(" %", Font_11x18, White);
+    ssd1306_UpdateScreen();
 
     // Set color of WS2818B LED
     // WS2812_SetColor(0,0, 0, 1);
     // WS2812_Update();
     
 
-    osDelay(100);
+    osDelay(1000);
   }
   /* USER CODE END StartDisplayTask */
 }
@@ -674,6 +701,8 @@ void StartLedTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
+    // 872
+    uint32_t task3Stack = osThreadGetStackSpace(ledTaskHandle);
     HAL_GPIO_TogglePin(BLINK_LED_GPIO_Port, BLINK_LED_Pin);
     osDelay(1000);
   }

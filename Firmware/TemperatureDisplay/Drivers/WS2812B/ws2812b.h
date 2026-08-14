@@ -9,8 +9,8 @@
 #define WS2812_RGB_LED_H
 
 // Includes
-#include "main.h"
 // Include the hal library for your STM32 family
+#include "stm32l4xx_hal.h"
 #include "stm32l4xx_hal_def.h"
 
 

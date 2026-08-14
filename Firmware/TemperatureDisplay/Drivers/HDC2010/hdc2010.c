@@ -36,19 +36,21 @@ HAL_StatusTypeDef hdc2010_init(void) {
 
     // select the desired Auto Measurement Mode (AMM) in CONFIG register (0x0E)
     // AMM Conversion Rate is 1Hz
-    HAL_StatusTypeDef ret = HAL_I2C_Mem_Write_DMA(&HDC2010_I2C_PORT, HDC2010_ADDR, HDC2010_RESET_INT_CONF, I2C_MEMADD_SIZE_8BIT, (uint8_t[]) {0x50}, 1);
-    if (ret != HAL_OK)
+    // HAL_StatusTypeDef ret = HAL_I2C_Mem_Write_DMA(&HDC2010_I2C_PORT, HDC2010_ADDR, HDC2010_RESET_INT_CONF, I2C_MEMADD_SIZE_8BIT, (uint8_t[]) {0x50}, 1);
+    HAL_StatusTypeDef ret = HAL_I2C_Mem_Write(&HDC2010_I2C_PORT, HDC2010_ADDR, HDC2010_RESET_INT_CONF, I2C_MEMADD_SIZE_8BIT, (uint8_t[]) {0x50}, 1, osWaitForever);
+    if (ret != HAL_OK || HDC2010_I2C_PORT.ErrorCode != HAL_I2C_ERROR_NONE)
         return ret;
     
     // select the Temperature and Humidity resolutions and the temperature + humidity 
     // measurement configuration in MEAS_CONFIG register (0x0F)
-    ret = HAL_I2C_Mem_Write_DMA(&HDC2010_I2C_PORT, HDC2010_ADDR, HDC2010_MEASURE_CONF, I2C_MEMADD_SIZE_8BIT, (uint8_t[]) {0x01}, 1);
-    if (ret != HAL_OK)
+    // ret = HAL_I2C_Mem_Write_DMA(&HDC2010_I2C_PORT, HDC2010_ADDR, HDC2010_MEASURE_CONF, I2C_MEMADD_SIZE_8BIT, (uint8_t[]) {0x01}, 1);
+    ret = HAL_I2C_Mem_Write(&HDC2010_I2C_PORT, HDC2010_ADDR, HDC2010_MEASURE_CONF, I2C_MEMADD_SIZE_8BIT, (uint8_t[]) {0x01}, 1, osWaitForever);
+    if (ret != HAL_OK || HDC2010_I2C_PORT.ErrorCode != HAL_I2C_ERROR_NONE)
         return ret;
 
     // enable interrupt write register 0x07 -> 0x80
     // Interrupt pin is active low
-    return HAL_I2C_Mem_Write_DMA(&HDC2010_I2C_PORT, HDC2010_ADDR, HDC2010_INT_MASK, I2C_MEMADD_SIZE_8BIT, (uint8_t[]) {0x80}, 1);
+    return HAL_I2C_Mem_Write(&HDC2010_I2C_PORT, HDC2010_ADDR, HDC2010_INT_MASK, I2C_MEMADD_SIZE_8BIT, (uint8_t[]) {0x80}, 1, osWaitForever);
 }
 
 HAL_StatusTypeDef hdc2010_read_temperature_humidity(float *temperature, float *humidity) {

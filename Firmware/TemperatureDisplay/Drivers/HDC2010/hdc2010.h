@@ -1,7 +1,7 @@
 #ifndef __HDC2010_H__
 #define __HDC2010_H__
 
-#include "main.h"
+#include "stm32l4xx_hal.h"
 #include "stm32l4xx_hal_def.h"
 
 // Define the I2C port for the HDC2010 sensor
