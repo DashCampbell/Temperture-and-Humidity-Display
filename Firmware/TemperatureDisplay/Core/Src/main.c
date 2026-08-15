@@ -56,8 +56,6 @@ typedef StaticEventGroup_t osStaticEventGroupDef_t;
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c3;
-DMA_HandleTypeDef hdma_i2c1_rx;
-DMA_HandleTypeDef hdma_i2c1_tx;
 
 TIM_HandleTypeDef htim2;
 DMA_HandleTypeDef hdma_tim2_ch1;
@@ -199,6 +197,11 @@ int main(void)
 
   /* USER CODE BEGIN SysInit */
 
+  // Enable debugging in Low-Power modes
+  HAL_DBGMCU_EnableDBGSleepMode();
+  HAL_DBGMCU_EnableDBGStopMode();
+  HAL_DBGMCU_EnableDBGStandbyMode();
+  
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -299,13 +302,12 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 1;
-  RCC_OscInitStruct.PLL.PLLN = 10;
+  RCC_OscInitStruct.PLL.PLLN = 20;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
   RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
   RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
@@ -497,12 +499,6 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
-  /* DMA1_Channel6_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
-  /* DMA1_Channel7_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
 
 }
 
@@ -584,8 +580,17 @@ void StartDefaultTask(void *argument)
 void StartSensorTask(void *argument)
 {
   /* USER CODE BEGIN StartSensorTask */
-  WS2812_SetColor(0,0, 10, 0);
+  WS2812_SetColor(0,0, 5, 0);
   WS2812_Update();
+  osDelay(1000);
+  
+  WS2812_SetColor(0,5, 0, 0);
+  WS2812_Update();
+  osDelay(1000);
+  
+  WS2812_SetColor(0,0, 0, 5);
+  WS2812_Update();
+  osDelay(1000);
 
   if (hdc2010_init() != HAL_OK)
   {
@@ -602,6 +607,7 @@ void StartSensorTask(void *argument)
   {
     // 1800
     uint32_t task1Stack = osThreadGetStackSpace(sensorTaskHandle);
+
     // Wait for interrupt signal from HDC2010 before retreiving data
     // osEventFlagsWait(sensorEventHandle, SENSOR_READY, osFlagsWaitAll, osWaitForever);
 
